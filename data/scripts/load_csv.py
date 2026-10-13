@@ -1,7 +1,7 @@
 """Load a folder of CSVs into one SQLite database with Spark (one CSV = one table).
 
 Usage (from query-project/):
-    uv run --with pyspark data/scripts/load_csv.py data/source_data/retail data/db/retail.db
+    uv run --package data-tools data/scripts/load_csv.py data/source_data/retail data/db/retail.db
 """
 
 import argparse

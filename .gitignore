@@ -2,7 +2,6 @@
 __pycache__/
 *.pyc
 .env
-data/db/
 data/source_data/*
 !data/source_data/description_data.md
 .DS_Store
