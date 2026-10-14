@@ -1,0 +1,14 @@
+# Run from the repo root:  docker compose up --build   (stop: docker compose down)
+name: query-agent            # project name shown on the Docker dashboard
+
+services:
+  mcp-server:
+    build:
+      context: .                          # repo root: the workspace files live there
+      dockerfile: mcp-server/Dockerfile
+    image: query-agent-mcp
+    container_name: query-agent-mcp
+    ports:
+      - "8000:8000"                       # Mac port : container port
+    volumes:
+      - ./data/db:/app/data/db:ro         # data comes in read-only, not baked into the image
