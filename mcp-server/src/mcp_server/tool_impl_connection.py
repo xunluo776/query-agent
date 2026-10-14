@@ -5,6 +5,7 @@
 Each implementation is built once per tool yaml, bound to that yaml's database and tables.
 """
 
+import inspect
 from collections.abc import Callable
 
 from mcp.server import MCPServer
@@ -37,4 +38,8 @@ def register_tools(mcp: MCPServer, config: ServerConfig) -> None:
         for tool in tool_file.tools:
             # The model sees every table and column up front, so it can write the SQL
             description = f"{tool.description}\n\n{tool_file.description}\n\n{tool_file.tables_text()}"
-            mcp.add_tool(IMPLEMENTATIONS[tool.type](db), name=tool.name, description=description)
+            fn = IMPLEMENTATIONS[tool.type](db)
+            params = list(inspect.signature(fn).parameters)
+            if params != tool.input:
+                raise ValueError(f"tool {tool.name!r}: input {tool.input} doesn't match type {tool.type!r}, which takes {params}")
+            mcp.add_tool(fn, name=tool.name, description=description)

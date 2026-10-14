@@ -5,7 +5,13 @@ settings:                # apply to the whole server
   row_limit: 10000       # safety cap: max rows one query can return
   timeout_sec: 5         # stop a query that runs longer than this
 
-tools:                   # registry: <name> -> tools/<name>.yaml (inside mcp_server/)
-  videos: {enabled: true}
-  movies: {enabled: true}
-  food_delivery: {enabled: true}
+tools:                   # registry: one entry per tool yaml
+  - name: videos                               # display name (e.g. agent steps in the UI); same as the file name for now
+    path: src/mcp_server/tools/videos.yaml     # tool yaml, relative to this file
+    enabled: true
+  - name: movies
+    path: src/mcp_server/tools/movies.yaml
+    enabled: true
+  - name: food_delivery
+    path: src/mcp_server/tools/food_delivery.yaml
+    enabled: true

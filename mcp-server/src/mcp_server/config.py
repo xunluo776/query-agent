@@ -1,47 +1,68 @@
-"""Load and check server.yaml, so a bad config fails at startup with a clear message."""
+"""Load and check server.yaml with Pydantic, so a bad config fails at startup with a clear message."""
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+from pydantic import BaseModel, ConfigDict, PositiveFloat, PositiveInt, StrictBool, ValidationInfo, field_validator, model_validator
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "server.yaml"  # mcp-server/server.yaml
 
 
-@dataclass(frozen=True)
-class ServerConfig:
-    db_dir: Path
-    row_limit: int
-    timeout_sec: float
-    tools: dict[str, dict] = field(default_factory=dict)  # tool name -> its registry entry
+class YamlModel(BaseModel):
+    """Base for every yaml model: read-only, unknown keys are errors (catches typos), text is trimmed."""
+    model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
 
-    def tool_enabled(self, name: str) -> bool:
-        return self.tools.get(name, {}).get("enabled", False)
+
+def read_yaml(path: Path) -> dict:
+    if not path.is_file():
+        raise ValueError(f"file not found: {path}")
+    return yaml.safe_load(path.read_text()) or {}
+
+
+def resolve_path(value: str, info: ValidationInfo) -> Path:
+    """Relative paths in a yaml are relative to that yaml file (passed in as context)."""
+    return (info.context["base_dir"] / value).resolve()
+
+
+class Settings(YamlModel):
+    db_dir: Path            # folder with the SQLite files
+    row_limit: PositiveInt  # safety cap: max rows one query can return
+    timeout_sec: PositiveFloat
+
+    @field_validator("db_dir", mode="before")
+    @classmethod
+    def _db_dir(cls, value: str, info: ValidationInfo) -> Path:
+        path = resolve_path(value, info)
+        if not path.is_dir():
+            raise ValueError(f"folder not found: {path}")
+        return path
+
+
+class ToolEntry(YamlModel):
+    name: str               # display name, e.g. for agent steps in the UI
+    path: Path              # tool yaml
+    enabled: StrictBool     # true/false only, not "yes"
+
+    @field_validator("path", mode="before")
+    @classmethod
+    def _path(cls, value: str, info: ValidationInfo) -> Path:
+        path = resolve_path(value, info)
+        if not path.is_file():
+            raise ValueError(f"file not found: {value}")
+        return path
+
+
+class ServerConfig(YamlModel):
+    settings: Settings
+    tools: list[ToolEntry] = []  # the registry, in server.yaml order
+
+    @model_validator(mode="after")
+    def _unique_names(self):
+        names = [t.name for t in self.tools]
+        if len(names) != len(set(names)):
+            raise ValueError(f"tool names must be unique, got {names}")
+        return self
 
 
 def load_config(path: Path = CONFIG_PATH) -> ServerConfig:
-    raw = yaml.safe_load(path.read_text()) or {}
-    settings = raw.get("settings") or {}
-    tools = raw.get("tools") or {}
-
-    if not settings.get("db_dir"):
-        raise ValueError(f"{path.name}: settings.db_dir is missing")
-    db_dir = (path.parent / settings["db_dir"]).resolve()
-    if not db_dir.is_dir():
-        raise ValueError(f"{path.name}: settings.db_dir not found: {db_dir}")
-
-    row_limit = settings.get("row_limit")
-    if not isinstance(row_limit, int) or row_limit <= 0:
-        raise ValueError(f"{path.name}: settings.row_limit must be a positive integer, got {row_limit!r}")
-
-    timeout_sec = settings.get("timeout_sec")
-    if not isinstance(timeout_sec, (int, float)) or timeout_sec <= 0:
-        raise ValueError(f"{path.name}: settings.timeout_sec must be a positive number, got {timeout_sec!r}")
-
-    if not isinstance(tools, dict):
-        raise ValueError(f"{path.name}: tools must be a mapping of tool name -> settings")
-    for name, entry in tools.items():
-        if not isinstance(entry, dict) or not isinstance(entry.get("enabled"), bool):
-            raise ValueError(f"{path.name}: tools.{name} needs 'enabled: true' or 'enabled: false'")
-
-    return ServerConfig(db_dir=db_dir, row_limit=row_limit, timeout_sec=float(timeout_sec), tools=tools)
+    return ServerConfig.model_validate(read_yaml(path), context={"base_dir": path.parent})

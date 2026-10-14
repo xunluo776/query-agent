@@ -28,13 +28,13 @@ class QueryError(Exception):
 class Database:
     def __init__(self, config: ServerConfig, db: str, tables: set[str]):
         """db = file name in settings.db_dir (e.g. "videos.db"); tables = the only tables queries may read."""
-        path = (config.db_dir / db).resolve()
-        if path.parent != config.db_dir or not path.is_file():  # also blocks "../../etc/x"
-            raise ValueError(f"database {db!r} not found in {config.db_dir}")
+        path = (config.settings.db_dir / db).resolve()
+        if path.parent != config.settings.db_dir or not path.is_file():  # also blocks "../../etc/x"
+            raise ValueError(f"database {db!r} not found in {config.settings.db_dir}")
         self.path = path
         self.tables = set(tables)
-        self.row_limit = config.row_limit
-        self.timeout_sec = config.timeout_sec
+        self.row_limit = config.settings.row_limit
+        self.timeout_sec = config.settings.timeout_sec
 
     def run_query(self, sql: str) -> dict:
         """Run one read-only SELECT. Returns {columns, rows, row_count, truncated}."""
