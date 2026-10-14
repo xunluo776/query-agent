@@ -1,0 +1,48 @@
+# One table. Read only when a tool's yaml lists it.
+table: main.movies              # name used in SQL (SQLite: schema.table; the opened file is always "main")
+database: movies.db             # SQLite file in settings.db_dir
+description: Movies, one row per movie (5,000 rows, synthetic).
+
+columns:
+  - name: movie_id
+    type: INTEGER
+    description: "Unique movie ID"
+  - name: title
+    type: TEXT
+    description: "Placeholder title, e.g. Movie_0001"
+  - name: year
+    type: INTEGER
+    description: "Release year (1980-2024)"
+  - name: decade
+    type: TEXT
+    description: "Release decade: 1980s, 1990s, 2000s, 2010s, 2020s"
+  - name: genre
+    type: TEXT
+    description: "Action, Adventure, Animation, Comedy, Documentary, Drama, Horror, Romance, Sci-Fi, Thriller"
+  - name: runtime_min
+    type: INTEGER
+    description: "Length in minutes (60-185)"
+  - name: budget_usd
+    type: REAL
+    description: "Production budget in USD"
+  - name: revenue_usd
+    type: REAL
+    description: "Box-office revenue in USD"
+  - name: profit_usd
+    type: REAL
+    description: "revenue_usd - budget_usd"
+  - name: roi
+    type: REAL
+    description: "Return on investment: profit_usd / budget_usd (0.31 = 31%)"
+  - name: rating
+    type: REAL
+    description: "Average audience rating (1-10)"
+  - name: vote_count
+    type: INTEGER
+    description: "Number of ratings"
+  - name: popularity
+    type: REAL
+    description: "Popularity score (higher = more popular)"
+  - name: blockbuster
+    type: INTEGER
+    description: "1 if revenue > 3x budget AND revenue > $100M, else 0"

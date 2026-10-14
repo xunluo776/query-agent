@@ -1,0 +1,21 @@
+# One tool yaml. Read at startup when enabled in server.yaml.
+name: food_delivery
+description: >-                 # what the data is about; shared by the tools below
+  Survey of online food delivery customers in Bangalore, India. Answers questions about
+  who orders (age, job, income, family) and how customer groups rate the service.
+tables:                         # paths relative to this file; also the query allowlist
+  - ../tables/customers.yaml
+
+tools:                          # MCP tools; type = which implementation runs it (both are queries, different use cases)
+  - name: food_delivery_discover_boundary
+    type: query
+    description: >-
+      MUST be called first when the question involves time (dates, years, "recent",
+      changes over time). Pick the time column and run SELECT MIN(col), MAX(col)
+      on it, so you know what range the data covers before writing the real query.
+  - name: food_delivery_query
+    type: query
+    description: >-
+      Run one read-only SQLite SELECT. No trailing ';' and no '--' comments.
+      Returns columns and rows (max 10,000). The tables and columns are listed below
+      (added from the table yamls when the server starts).

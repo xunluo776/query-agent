@@ -1,0 +1,51 @@
+# One table. Read only when a tool's yaml lists it.
+table: main.videos              # name used in SQL (SQLite: schema.table; the opened file is always "main")
+database: videos.db             # SQLite file in settings.db_dir
+description: YouTube-style videos, one row per video (12,000 rows, synthetic).
+
+columns:
+  - name: video_id
+    type: TEXT
+    description: Unique video ID, e.g. vid_000001
+  - name: category
+    type: TEXT
+    description: "Beauty, Comedy, Cooking, DIY, Education, Finance, Fitness, Gaming, Music, News, Science, Sports, Tech, Travel, Vlog"
+  - name: duration_sec
+    type: INTEGER
+    description: Video length in seconds (30-1960)
+  - name: title_length
+    type: INTEGER
+    description: Number of characters in the title
+  - name: thumbnail_face
+    type: INTEGER
+    description: 1 if the thumbnail shows a face, else 0
+  - name: upload_hour
+    type: INTEGER
+    description: Hour of upload (0-23)
+  - name: upload_day
+    type: TEXT
+    description: "Day of upload: Mon, Tue, Wed, Thu, Fri, Sat, Sun"
+  - name: tags_count
+    type: INTEGER
+    description: Number of tags
+  - name: description_length
+    type: INTEGER
+    description: Number of characters in the description
+  - name: subscriber_count
+    type: INTEGER
+    description: Channel's subscribers at upload time
+  - name: views
+    type: INTEGER
+    description: Total views
+  - name: likes
+    type: INTEGER
+    description: Total likes
+  - name: comments
+    type: INTEGER
+    description: Total comments
+  - name: shares
+    type: INTEGER
+    description: Total shares
+  - name: viral
+    type: INTEGER
+    description: 1 if views are in the top 20%, else 0

@@ -1,0 +1,39 @@
+# One table. Read only when a tool's yaml lists it.
+table: main.customers              # name used in SQL (SQLite: schema.table; the opened file is always "main")
+database: food_delivery.db             # SQLite file in settings.db_dir
+description: Food delivery survey answers, one row per response (388 rows).
+
+columns:
+  - name: customer_id
+    type: INTEGER
+    description: "Unique survey response ID (added; the source had none)"
+  - name: age
+    type: INTEGER
+    description: "Customer age (18-33)"
+  - name: gender
+    type: TEXT
+    description: "Male, Female"
+  - name: marital_status
+    type: TEXT
+    description: "Single, Married, Prefer not to say"
+  - name: occupation
+    type: TEXT
+    description: "Student, Employee, Self Employed, House wife"
+  - name: monthly_income_rs
+    type: INTEGER
+    description: "Estimated monthly income in rupees (midpoint of the survey band): 0 = No Income, 5000 = Below 10000, 17500 = 10001-25000, 37500 = 25001-50000, 60000 = More than 50000 (assumed)"
+  - name: education
+    type: TEXT
+    description: "Uneducated, School, Graduate, Post Graduate, Ph.D"
+  - name: family_size
+    type: INTEGER
+    description: "People in the household (1-6)"
+  - name: customer_type
+    type: TEXT
+    description: "New, Regular, Frequent"
+  - name: pin_code
+    type: INTEGER
+    description: "Bangalore postal code of the customer's area"
+  - name: feedback
+    type: TEXT
+    description: "Overall feedback on the service: Positive, Negative"

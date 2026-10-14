@@ -7,14 +7,13 @@ Run:
 
 from mcp.server import MCPServer
 
+from mcp_server.config import load_config
+from mcp_server.tool_impl_connection import register_tools
+
+config = load_config()  # runs at startup: a bad server.yaml stops the server here
 mcp = MCPServer("query-agent-mcp")
 
-
-@mcp.tool()
-def ping() -> str:
-    """Health check: returns 'pong'. Placeholder until the real tools exist."""
-    return "pong"
-
+register_tools(mcp, config)  # tools come from the yamls
 
 # ASGI app for HTTP; uvicorn serves it, and host/port are set on the uvicorn command line.
 # Default security: only requests addressed to localhost are accepted.
