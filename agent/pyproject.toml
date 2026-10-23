@@ -1,5 +1,5 @@
 [project]
-name = "backend"
+name = "agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,10 +7,13 @@ authors = [
     { name = "Xun", email = "194328036+xunluo776@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "langchain-google-genai>=4.4.2",
+    "python-dotenv>=1.2.4",
+]
 
 [project.scripts]
-backend = "backend:main"
+agent = "agent:main"
 
 [build-system]
 requires = ["uv_build>=0.9.3,<0.10.0"]

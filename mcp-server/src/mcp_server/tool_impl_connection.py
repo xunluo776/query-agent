@@ -28,7 +28,7 @@ def make_query(db: Database) -> Callable:
     return query
 
 
-IMPLEMENTATIONS = {"query": make_query}  # keys = catalog.TOOL_TYPES
+IMPLEMENTATIONS = {"query": make_query}  # keys must match ToolDef.type in catalog.py
 
 
 def register_tools(mcp: MCPServer, config: ServerConfig) -> None:

@@ -11,7 +11,7 @@ WORKDIR /app
 
 # Workspace root + lock file, plus every member's pyproject (uv needs them to read the workspace)
 COPY pyproject.toml uv.lock ./
-COPY backend/pyproject.toml backend/
+COPY agent/pyproject.toml agent/
 COPY ui/pyproject.toml ui/
 COPY data/pyproject.toml data/
 COPY mcp-server/ mcp-server/
