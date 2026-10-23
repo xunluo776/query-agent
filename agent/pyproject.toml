@@ -8,16 +8,20 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.161.1",
+    "httpx>=0.28.1",
     "langchain-google-genai>=4.4.2",
     "langchain[mcp]>=1.4.0",
     "langgraph>=1.2.16",
+    "langgraph-checkpoint-sqlite>=3.1.2",
     "pydantic>=2.14.1",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
-agent = "agent:main"
+agent = "agent.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.3,<0.10.0"]

@@ -5,3 +5,4 @@ __pycache__/
 data/source_data/*
 !data/source_data/description_data.md
 .DS_Store
+data/state/
