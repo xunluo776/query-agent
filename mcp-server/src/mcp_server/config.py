@@ -28,6 +28,8 @@ class Settings(YamlModel):
     db_dir: Path            # folder with the SQLite files
     row_limit: PositiveInt  # safety cap: max rows one query can return
     timeout_sec: PositiveFloat
+    allowed_hosts: list[str]    # HTTP Host headers the server accepts (server.py)
+    allowed_origins: list[str]  # browser Origin headers the server accepts (server.py)
 
     @field_validator("db_dir", mode="before")
     @classmethod

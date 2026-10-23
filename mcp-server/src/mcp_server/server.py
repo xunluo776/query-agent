@@ -6,6 +6,7 @@ Run:
 """
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 
 from mcp_server.config import load_config
 from mcp_server.tool_impl_connection import register_tools
@@ -16,8 +17,12 @@ mcp = MCPServer("query-agent-mcp")
 register_tools(mcp, config)  # tools come from the yamls
 
 # ASGI app for HTTP; uvicorn serves it, and host/port are set on the uvicorn command line.
-# Default security: only requests addressed to localhost are accepted.
-app = mcp.streamable_http_app()
+# Security: only the Host/Origin headers listed in server.yaml are accepted (localhost + the Compose name).
+security = TransportSecuritySettings(
+    allowed_hosts=config.settings.allowed_hosts,
+    allowed_origins=config.settings.allowed_origins,
+)
+app = mcp.streamable_http_app(transport_security=security)
 
 
 def main() -> None:
