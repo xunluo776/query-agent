@@ -1,0 +1,5 @@
+# Agent config. Read once at startup by setting_reader.py.
+
+model: gemini-3.5-flash-lite           # Gemini model; 3.8 Flash (gemini-3.8-flash) for final checks
+mcp_url: http://127.0.0.1:8000/mcp     # MCP server; the MCP_URL env variable overrides it (Docker Compose)
+recursion_limit: 8                     # LangGraph stop rule: max node runs per question (llm + tools = 2, so ~4 LLM calls)
