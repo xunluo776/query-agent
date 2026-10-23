@@ -29,3 +29,17 @@ services:
     depends_on:
       - mcp-server
     restart: unless-stopped               # retries if it starts before the MCP server is ready
+
+  ui:                                     # chat page: http://localhost:8501
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    image: query-agent-ui
+    container_name: query-agent-ui
+    ports:
+      - "8501:8501"
+    environment:
+      AGENT_URL: http://agent:8001        # the agent service, by its Compose name
+    depends_on:
+      - agent
+    restart: unless-stopped
