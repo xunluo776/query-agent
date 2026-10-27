@@ -30,6 +30,12 @@ class ThreadStore:
         )
         await self.conn.commit()
 
+    async def delete(self, thread_id: str) -> bool:
+        """Remove the chat from the list; False if it wasn't there."""
+        cursor = await self.conn.execute("DELETE FROM threads WHERE thread_id = ?", (thread_id,))
+        await self.conn.commit()
+        return cursor.rowcount > 0
+
     async def list(self) -> list[dict]:
         """All chats, most recently used first."""
         async with self.conn.execute(

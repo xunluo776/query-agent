@@ -7,6 +7,7 @@ Run:
     POST /chat {"message", "thread_id"}  -> graph (llm <-> tools) -> {"thread_id", "steps", "answer", "result"}
     GET  /threads                        -> the chat list for the UI sidebar, most recent first
     GET  /threads/{thread_id}            -> one chat's history: {"thread_id", "turns"} (no rows)
+    DELETE /threads/{thread_id}          -> delete the chat (its saved messages + its row in the list)
     GET  /health
 
 Rows are never saved: only the /chat reply carries them (the UI keeps them for that page session).
@@ -71,6 +72,7 @@ async def lifespan(app: FastAPI):
         AsyncSqliteSaver.from_conn_string(str(chat_db)) as checkpointer,  # messages per chat (tables made on first use)
         aiosqlite.connect(chat_db) as conn,                               # our own chat list, same file
     ):
+        app.state.checkpointer = checkpointer
         app.state.threads = ThreadStore(conn)
         await app.state.threads.setup()
         app.state.graph = await build_graph(checkpointer)  # fails (service stops) if the MCP server can't be used
@@ -133,3 +135,12 @@ async def get_thread(thread_id: str) -> ThreadHistory:
     if not state.get("messages"):
         raise HTTPException(status_code=404, detail=f"no chat with thread_id {thread_id!r}")
     return ThreadHistory(thread_id=thread_id, turns=to_turns(state["messages"]))
+
+
+@app.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: str) -> dict:
+    """Delete a chat in both places: the checkpointer's saved messages and our chat list."""
+    await app.state.checkpointer.adelete_thread(thread_id)
+    if not await app.state.threads.delete(thread_id):
+        raise HTTPException(status_code=404, detail=f"no chat with thread_id {thread_id!r}")
+    return {"deleted": thread_id}

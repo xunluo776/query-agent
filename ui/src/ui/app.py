@@ -22,6 +22,15 @@ SETTINGS = yaml.safe_load((Path(__file__).parent / "settings.yaml").read_text())
 AGENT_URL = os.getenv("AGENT_URL") or SETTINGS["agent_url"]
 TITLE = "Eddie's Query Agent"
 
+# Sidebar: a chat's delete icon shows only while the mouse is over that chat's row (like ChatGPT).
+# Streamlit has no hover option, so this CSS uses its class names: a container with key="row-x" gets the
+# class "st-key-row-x", and a popover is data-testid="stPopover" (checked in Streamlit 1.66; may change).
+HOVER_CSS = """<style>
+[class*="st-key-row-"] [data-testid="stPopover"] { opacity: 0; transition: opacity 0.15s; }
+[class*="st-key-row-"]:hover [data-testid="stPopover"],
+[class*="st-key-row-"] [data-testid="stPopover"]:focus-within { opacity: 1; }
+</style>"""
+
 
 def agent(method: str, path: str, **kwargs) -> dict | list:
     """Call the agent service; raises RuntimeError with a readable message."""
@@ -39,8 +48,20 @@ def open_chat(thread_id: str | None) -> None:
     st.session_state.thread_id = thread_id
 
 
+def delete_chat(thread_id: str) -> None:
+    try:
+        agent("DELETE", f"/threads/{thread_id}")
+    except RuntimeError as e:
+        st.toast(str(e))
+        return
+    st.session_state.results = {k: v for k, v in st.session_state.results.items() if not k.startswith(f"{thread_id}:")}
+    if st.session_state.thread_id == thread_id:  # deleted the open chat -> fresh chat
+        st.session_state.thread_id = None
+
+
 def sidebar() -> None:
     with st.sidebar:
+        st.html(HOVER_CSS)
         st.button("New chat", icon=":material/edit_square:", width="stretch", on_click=open_chat, args=(None,))
         st.caption("Chats")
         try:
@@ -49,9 +70,15 @@ def sidebar() -> None:
             st.error(str(e))
             return
         for t in threads:  # the sidebar scrolls when the list is long
-            current = t["thread_id"] == st.session_state.thread_id
-            st.button(t["thread_id"][:8], key=t["thread_id"], width="stretch",
-                      type="primary" if current else "secondary", on_click=open_chat, args=(t["thread_id"],))
+            tid = t["thread_id"]
+            row = st.container(key=f"row-{tid}")  # one row = chat button + delete icon (shown on hover)
+            chat_col, delete_col = row.columns([5, 1], vertical_alignment="center")
+            chat_col.button(tid[:8], key=f"open-{tid}", width="stretch",
+                            type="primary" if tid == st.session_state.thread_id else "secondary",
+                            on_click=open_chat, args=(tid,))
+            with delete_col.popover("", icon=":material/delete:", type="tertiary", help="Delete chat"):
+                st.caption("Delete this chat? This can't be undone.")
+                st.button("Delete", key=f"delete-{tid}", type="primary", on_click=delete_chat, args=(tid,))
 
 
 def show_turn(turn: dict, result: dict | None, key: str) -> None:
