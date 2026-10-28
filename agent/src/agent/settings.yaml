@@ -4,4 +4,5 @@ model: gemini-3.5-flash-lite           # Gemini model; 3.8 Flash (gemini-3.8-fla
 mcp_url: http://127.0.0.1:8000/mcp     # MCP server; the MCP_URL env variable overrides it (Docker Compose)
 api_url: http://127.0.0.1:8001         # agent service (api.py); used by the terminal client (cli.py)
 chat_db: ../../../data/state/chats.db  # chat sessions (SQLite), relative to this file; same path on the Mac and in Docker
-recursion_limit: 8                     # LangGraph stop rule: max node runs per question (llm + tools = 2, so ~4 LLM calls)
+recursion_limit: 12                    # LangGraph stop rule: max node runs per question (llm + tools = 2, so ~6 LLM calls)
+read_cap: 30                           # max result rows the LLM reads (the user still gets the full result)

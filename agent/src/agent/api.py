@@ -108,12 +108,12 @@ async def health() -> dict:
 async def chat(req: ChatRequest) -> ChatResponse:
     thread_id = req.thread_id or uuid.uuid4().hex
     config = {"configurable": {"thread_id": thread_id}}            # which session to load and save
-    inputs = {"messages": [("user", req.message)], "query_ok": False}
+    inputs = {"messages": [("user", req.message)]}
     await app.state.threads.touch(thread_id)                       # listed in the sidebar even if the run fails
     answer, result = None, None
     try:
         async for chunk in app.state.graph.astream(inputs, config=config, stream_mode="custom"):
-            result = chunk["result"]  # the tools node sends the rows here, not into the saved state
+            result = chunk["result"]  # the tools node sends the full rows here (not saved); piece 3: one per step
     except GraphRecursionError:
         answer = "Couldn't answer within the step limit (recursion_limit in settings.yaml)."
     except Exception as e:  # e.g. a Gemini rate-limit error; tell the client instead of a bare 500

@@ -19,6 +19,7 @@ class Settings(BaseModel):
     api_url: str                  # agent service URL, for the terminal client
     chat_db: Path                 # SQLite file for chat sessions (api.py)
     recursion_limit: PositiveInt  # passed to LangGraph in graph.py
+    read_cap: PositiveInt         # max result rows the LLM reads (graph.py)
 
 
 def load_settings(path: Path = SETTINGS_PATH) -> Settings:
