@@ -2,7 +2,7 @@
 
 settings:                # apply to the whole server
   db_dir: ../data/db     # folder with the SQLite files (one .db per dataset)
-  row_limit: 10000       # safety cap: max rows one query can return
+  row_limit: 100000      # safety cap: max rows one query can return (guards against runaway queries)
   timeout_sec: 5         # stop a query that runs longer than this
   allowed_hosts:         # HTTP Host headers the server accepts (DNS rebinding protection); others get 421
     - "127.0.0.1:*"      # the first 3 = the SDK's localhost defaults (Mac, Inspector)

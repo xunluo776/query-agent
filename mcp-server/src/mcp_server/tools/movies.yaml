@@ -19,5 +19,5 @@ tools:                          # MCP tools; type = which implementation runs it
     input: [sql]                # must match the implementation's parameters (checked at startup)
     description: >-
       Run one read-only SQLite SELECT. No trailing ';' and no '--' comments.
-      Returns columns and rows (max 10,000). The tables and columns are listed below
+      Returns columns and rows (max 100,000). The tables and columns are listed below
       (added from the table yamls when the server starts).
