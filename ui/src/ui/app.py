@@ -5,8 +5,9 @@
 
 Streamlit re-runs this whole script on every click or message; st.session_state is what survives a re-run:
   thread_id  the open chat (None = fresh chat)
-  results    the tables of this page session, per (thread_id, turn). Rows are never saved anywhere,
-             so a page refresh clears them; older answers then show their SQL only.
+  results    the tables of this page session, per (thread_id, turn): the shown table (<= 30 rows) and the full
+             results for Download. Rows are never saved anywhere, so a page refresh clears them; the answer
+             text stays (it's in the chat history), and the table shows "ask again to see it".
 """
 
 import os
@@ -81,29 +82,44 @@ def sidebar() -> None:
                 st.button("Delete", key=f"delete-{tid}", type="primary", on_click=delete_chat, args=(tid,))
 
 
-def show_turn(turn: dict, result: dict | None, key: str) -> None:
-    """One answer: what the agent did, then the table (this page session only) or the text answer."""
+def download_button(result: dict, key: str) -> None:
+    """Download CSV of a full result (from this page session's memory)."""
+    csv = pd.DataFrame(result["rows"], columns=result["columns"]).to_csv(index=False)
+    n = result["row_count"]
+    st.download_button(f"Download CSV ({n:,} row{'' if n == 1 else 's'})", csv, file_name="result.csv", mime="text/csv",
+                       icon=":material/download:", key=f"download-{key}")
+
+
+def show_turn(turn: dict, cached: dict | None, key: str) -> None:
+    """One answer: the text, then the table if the agent chose one, then what the agent did.
+    cached = {"table", "results"} from this page session's /chat reply; None after a refresh or for old chats."""
+    results = cached["results"] if cached else {}
+    if turn["answer"]:
+        st.markdown(turn["answer"].replace("$", r"\$"))  # "$" would start a math formula in Streamlit's Markdown
+    if turn["table"]:  # the agent chose a table to show
+        if cached and cached["table"]:
+            table = cached["table"]
+            shown = len(table["rows"])
+            st.caption(f"showing {shown} of {table['row_count']:,} rows" if shown < table["row_count"] else f"{shown} rows")
+            st.dataframe(pd.DataFrame(table["rows"], columns=table["columns"]), hide_index=True)
+            download_button(results[table["result_id"]], key)
+        else:
+            st.caption("The table isn't saved: ask again to see it.")
+    elif not turn["answer"] and turn["steps"]:  # old v1 chats: no saved answer
+        st.caption("The result isn't saved: ask again to see it.")
     if turn["steps"]:
         with st.expander("What the agent did"):
-            for step in turn["steps"]:
+            for i, step in enumerate(turn["steps"]):
                 st.caption(step["tool"])
                 st.code(step["sql"] or "", language="sql")
                 if step["error"]:
                     st.error(step["error"])
-    if result is not None:
-        df = pd.DataFrame(result["rows"], columns=result["columns"])
-        st.caption(f"{result['row_count']} rows" + (" (cut at the server's row limit)" if result["truncated"] else ""))
-        st.dataframe(df, hide_index=True)
-        st.download_button("Download CSV", df.to_csv(index=False), file_name="result.csv", mime="text/csv",
-                           icon=":material/download:", key=f"download-{key}")
-    elif turn["answer"]:
-        st.markdown(turn["answer"])
-    elif turn["steps"]:
-        st.caption("The result isn't saved: ask again to see it.")
+                elif step["result_id"] in results and step["result_id"] != turn["table"]:  # other queries' results
+                    download_button(results[step["result_id"]], f"{key}-step{i}")
 
 
 def send(thread_id: str, message: str, turn_index: int) -> None:
-    """POST /chat and keep the table for this page session."""
+    """POST /chat and keep this turn's table + full results for this page session."""
     with st.chat_message("user"):
         st.markdown(message)
     with st.chat_message("assistant"), st.spinner("Thinking..."):
@@ -112,7 +128,7 @@ def send(thread_id: str, message: str, turn_index: int) -> None:
         except RuntimeError as e:
             st.error(str(e))
             return
-    st.session_state.results[f"{thread_id}:{turn_index}"] = reply["result"]
+    st.session_state.results[f"{thread_id}:{turn_index}"] = {"table": reply["table"], "results": reply["results"]}
     st.rerun()  # draw the chat again from the agent's saved history (now with this turn)
 
 

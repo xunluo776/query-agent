@@ -43,19 +43,22 @@ class Step(BaseModel):
     tool: str
     sql: str | None
     error: str | None = None         # set when the database rejected this SQL (the LLM then retries)
+    result_id: str | None = None     # set when this query returned rows (r1, r2, ... per question)
 
 
 class Turn(BaseModel):
     question: str
-    steps: list[Step]                # every tool call, in order
-    answer: str | None               # the LLM's text (e.g. "no dataset fits"), when there are no rows
+    steps: list[Step]                # every tool call, in order (the final `answer` call is not a step)
+    answer: str | None               # the LLM's text
+    table: str | None = None         # result_id the LLM chose to show as a table (None = no table)
 
 
 class ChatResponse(BaseModel):
     thread_id: str
     steps: list[Step]
     answer: str | None
-    result: dict[str, Any] | None    # {columns, rows, row_count, truncated}: the rows go straight to the user
+    table: dict[str, Any] | None     # the chosen result, first read_cap rows: {result_id, columns, rows, row_count, truncated}
+    results: dict[str, dict]         # every full result of this question by result_id (for Download); never saved
 
 
 class ThreadHistory(BaseModel):
@@ -83,20 +86,35 @@ app = FastAPI(title="query-agent", lifespan=lifespan)
 
 
 def to_turns(messages: list[AnyMessage]) -> list[Turn]:
-    """Saved messages -> one Turn per user question (the UI shows these; the "Query OK" notes are skipped)."""
+    """Saved messages -> one Turn per user question (the UI shows these)."""
     turns, steps_by_call = [], {}
     for m in messages:
         if isinstance(m, HumanMessage):
             turns.append(Turn(question=m.text, steps=[], answer=None))
         elif isinstance(m, AIMessage) and turns:
             for call in m.tool_calls:
+                if call["name"] == "answer":  # the final answer, not a step
+                    turns[-1].answer = call["args"].get("text")
+                    turns[-1].table = call["args"].get("table")
+                    continue
                 step = Step(tool=call["name"], sql=call["args"].get("sql"))
                 turns[-1].steps.append(step)
                 steps_by_call[call["id"]] = step
-            turns[-1].answer = m.text or turns[-1].answer
-        elif isinstance(m, ToolMessage) and m.status == "error" and m.tool_call_id in steps_by_call:
-            steps_by_call[m.tool_call_id].error = m.text
+            turns[-1].answer = m.text or turns[-1].answer  # fallback: a plain-text reply
+        elif isinstance(m, ToolMessage) and m.tool_call_id in steps_by_call:
+            step = steps_by_call[m.tool_call_id]
+            if m.status == "error":
+                step.error = m.text
+            elif isinstance(m.artifact, dict):
+                step.result_id = m.artifact.get("result_id")
     return turns
+
+
+def table_preview(result: dict, result_id: str) -> dict:
+    """The table shown under the answer: the first read_cap rows (the full result is for Download)."""
+    rows = result["rows"][: load_settings().read_cap]
+    return {"result_id": result_id, "columns": result["columns"], "rows": rows,
+            "row_count": result["row_count"], "truncated": result["truncated"]}
 
 
 @app.get("/health")
@@ -108,12 +126,12 @@ async def health() -> dict:
 async def chat(req: ChatRequest) -> ChatResponse:
     thread_id = req.thread_id or uuid.uuid4().hex
     config = {"configurable": {"thread_id": thread_id}}            # which session to load and save
-    inputs = {"messages": [("user", req.message)]}
+    inputs = {"messages": [("user", req.message)], "result_count": 0}  # result ids restart at r1 per question
     await app.state.threads.touch(thread_id)                       # listed in the sidebar even if the run fails
-    answer, result = None, None
+    answer, results = None, {}
     try:
         async for chunk in app.state.graph.astream(inputs, config=config, stream_mode="custom"):
-            result = chunk["result"]  # the tools node sends the full rows here (not saved); piece 3: one per step
+            results[chunk["result_id"]] = chunk["result"]  # full rows from the tools node (not saved)
     except GraphRecursionError:
         answer = "Couldn't answer within the step limit (recursion_limit in settings.yaml)."
     except Exception as e:  # e.g. a Gemini rate-limit error; tell the client instead of a bare 500
@@ -121,7 +139,8 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     state = (await app.state.graph.aget_state(config)).values      # what the checkpointer saved for this chat
     turn = to_turns(state["messages"])[-1]
-    return ChatResponse(thread_id=thread_id, steps=turn.steps, answer=answer or turn.answer, result=result)
+    table = table_preview(results[turn.table], turn.table) if turn.table in results else None  # ignores a wrong id
+    return ChatResponse(thread_id=thread_id, steps=turn.steps, answer=answer or turn.answer, table=table, results=results)
 
 
 @app.get("/threads")

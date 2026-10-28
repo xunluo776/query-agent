@@ -11,7 +11,7 @@ import httpx
 
 from agent.setting_reader import load_settings
 
-SHOW_ROWS = 20   # the full result goes to the UI later (Phase 4)
+SHOW_ROWS = 30   # the table preview has at most read_cap rows anyway
 MAX_WIDTH = 40   # cut long values so the table fits the terminal
 
 
@@ -20,15 +20,15 @@ def show(reply: dict) -> None:
         print(f"  -> {step['tool']}: {step['sql']}")
         if step["error"]:
             print(f"  <- error: {step['error']}")
-    if reply["result"] is None:
-        print(reply["answer"] or "No answer.")
-    else:
-        print_result(reply["result"])
+    print(reply["answer"] or "No answer.")
+    if reply["table"]:  # only when the agent chose to show one
+        print_result(reply["table"])
 
 
 def print_result(result: dict) -> None:
     rows = result["rows"]
-    print(f"{result['row_count']} rows" + (" (truncated at the server's row limit)" if result["truncated"] else ""))
+    shown = f"showing {len(rows)} of {result['row_count']} rows" if len(rows) < result["row_count"] else f"{len(rows)} rows"
+    print(shown + (" (truncated at the server's row limit)" if result["truncated"] else ""))
     table = [result["columns"]] + [[str(v)[:MAX_WIDTH] for v in row] for row in rows[:SHOW_ROWS]]
     widths = [max(len(str(row[i])) for row in table) for i in range(len(result["columns"]))]
     for row in table:
