@@ -23,7 +23,7 @@ services:
       - "8001:8001"
     env_file: .env                        # GOOGLE_API_KEY, passed in at runtime (not in the image)
     volumes:
-      - ./data/state:/app/data/state      # chat sessions (chats.db) live on the Mac, so a rebuild keeps them
+      - ./data/state:/app/data/state      # chats.db + result files live on the Mac, so a rebuild keeps them
     environment:
       MCP_URL: http://mcp-server:8000/mcp # service name = hostname on Compose's network
     depends_on:

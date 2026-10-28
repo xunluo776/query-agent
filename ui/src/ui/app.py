@@ -5,9 +5,9 @@
 
 Streamlit re-runs this whole script on every click or message; st.session_state is what survives a re-run:
   thread_id  the open chat (None = fresh chat)
-  results    the tables of this page session, per (thread_id, turn): the shown table (<= 30 rows) and the full
-             results for Download. Rows are never saved anywhere, so a page refresh clears them; the answer
-             text stays (it's in the chat history), and the table shows "ask again to see it".
+  results    the tables of this page session, per (thread_id, turn): the shown table (<= 30 rows) and the row
+             counts. A page refresh clears them; the answer text stays (it's in the chat history). Full results
+             are files on the agent: Download fetches one on click (the page never holds them).
 """
 
 import os
@@ -82,18 +82,29 @@ def sidebar() -> None:
                 st.button("Delete", key=f"delete-{tid}", type="primary", on_click=delete_chat, args=(tid,))
 
 
-def download_button(result: dict, key: str) -> None:
-    """Download CSV of a full result (from this page session's memory)."""
-    csv = pd.DataFrame(result["rows"], columns=result["columns"]).to_csv(index=False)
-    n = result["row_count"]
-    st.download_button(f"Download CSV ({n:,} row{'' if n == 1 else 's'})", csv, file_name="result.csv", mime="text/csv",
-                       icon=":material/download:", key=f"download-{key}")
+def fetch_csv(thread_id: str, result_id: str) -> bytes:
+    """Called only when Download is clicked: get the full result file from the agent."""
+    try:
+        reply = httpx.get(f"{AGENT_URL}/results/{thread_id}/{result_id}", timeout=120)
+        reply.raise_for_status()
+    except httpx.HTTPError:  # the file is gone (deleted behind the scenes) or the agent is down
+        return b"Failed to fetch the result. Ask the question again to get it.\n"
+    return reply.content
 
 
-def show_turn(turn: dict, cached: dict | None, key: str) -> None:
+def download_button(thread_id: str, result_id: str, row_count: int | None, key: str) -> None:
+    """Download CSV of a full result. The data is fetched on click (not held by the page)."""
+    label = "Download CSV" if row_count is None else f"Download CSV ({row_count:,} row{'' if row_count == 1 else 's'})"
+    st.download_button(label, data=lambda: fetch_csv(thread_id, result_id), file_name=f"{result_id}.csv",
+                       mime="text/csv", icon=":material/download:", key=f"download-{key}")
+
+
+def show_turn(thread_id: str, turn: dict, cached: dict | None, key: str) -> None:
     """One answer: the text, then the table if the agent chose one, then what the agent did.
-    cached = {"table", "results"} from this page session's /chat reply; None after a refresh or for old chats."""
+    cached = {"table", "results"} from this page session's /chat reply; None after a refresh or for old chats.
+    Download fetches the file from the agent on click; if it's gone, the download says "Failed to fetch"."""
     results = cached["results"] if cached else {}
+    rows_of = lambda rid: results.get(rid, {}).get("row_count")  # None when not known (after a refresh)
     if turn["answer"]:
         st.markdown(turn["answer"].replace("$", r"\$"))  # "$" would start a math formula in Streamlit's Markdown
     if turn["table"]:  # the agent chose a table to show
@@ -102,9 +113,10 @@ def show_turn(turn: dict, cached: dict | None, key: str) -> None:
             shown = len(table["rows"])
             st.caption(f"showing {shown} of {table['row_count']:,} rows" if shown < table["row_count"] else f"{shown} rows")
             st.dataframe(pd.DataFrame(table["rows"], columns=table["columns"]), hide_index=True)
-            download_button(results[table["result_id"]], key)
+            download_button(thread_id, table["result_id"], table["row_count"], key)
         else:
-            st.caption("The table isn't saved: ask again to see it.")
+            st.caption("The table isn't shown after a refresh: ask again to see it.")
+            download_button(thread_id, turn["table"], None, key)
     elif not turn["answer"] and turn["steps"]:  # old v1 chats: no saved answer
         st.caption("The result isn't saved: ask again to see it.")
     if turn["steps"]:
@@ -114,8 +126,8 @@ def show_turn(turn: dict, cached: dict | None, key: str) -> None:
                 st.code(step["sql"] or "", language="sql")
                 if step["error"]:
                     st.error(step["error"])
-                elif step["result_id"] in results and step["result_id"] != turn["table"]:  # other queries' results
-                    download_button(results[step["result_id"]], f"{key}-step{i}")
+                elif step["result_id"] and step["result_id"] != turn["table"]:  # other queries' results
+                    download_button(thread_id, step["result_id"], rows_of(step["result_id"]), f"{key}-step{i}")
 
 
 def send(thread_id: str, message: str, turn_index: int) -> None:
@@ -161,7 +173,7 @@ def chat_page() -> None:
         with st.chat_message("user"):
             st.markdown(turn["question"])
         with st.chat_message("assistant"):
-            show_turn(turn, st.session_state.results.get(f"{thread_id}:{i}"), key=f"{thread_id}:{i}")
+            show_turn(thread_id, turn, st.session_state.results.get(f"{thread_id}:{i}"), key=f"{thread_id}:{i}")
     if message := st.chat_input("Ask a follow-up"):
         send(thread_id, message, turn_index=len(turns))
 

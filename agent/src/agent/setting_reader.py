@@ -18,6 +18,8 @@ class Settings(BaseModel):
     mcp_url: str                  # MCP server URL
     api_url: str                  # agent service URL, for the terminal client
     chat_db: Path                 # SQLite file for chat sessions (api.py)
+    results_dir: Path             # folder for query result files (result_store.py)
+    result_ttl_min: PositiveInt   # result files are deleted after this many minutes
     recursion_limit: PositiveInt  # passed to LangGraph in graph.py
     read_cap: PositiveInt         # max result rows the LLM reads (graph.py)
 
@@ -28,6 +30,7 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
     data = yaml.safe_load(path.read_text()) or {}
     if url := os.getenv("MCP_URL"):  # e.g. http://mcp-server:8000/mcp in Docker Compose
         data["mcp_url"] = url
-    if "chat_db" in data:  # relative to settings.yaml, so the Mac and Docker use the same path
-        data["chat_db"] = (path.parent / data["chat_db"]).resolve()
+    for key in ("chat_db", "results_dir"):  # relative to settings.yaml, so the Mac and Docker use the same path
+        if key in data:
+            data[key] = (path.parent / data[key]).resolve()
     return Settings.model_validate(data)
